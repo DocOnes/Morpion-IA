@@ -1,0 +1,152 @@
+from random import choice,random
+
+class Agent():
+    def __init__(self,player,epsilon=1,reward=1,lr=0.01,decay=0.95,epsilon_min=0.001,trainable=True,bot=True):
+        self.epsilon=epsilon
+        self.reward=reward
+        self.lr=lr
+        self.decay=decay
+        self.epsilon_min=epsilon_min
+        self.trainable=trainable
+        self.player=player
+
+    def modif(self,action,etat,p):
+        c=""
+        for i in range(len(str(etat))):
+            if i==action:
+                c+=str(p)
+            else:
+                c+=str(etat)[i]
+        return c
+
+    def step(self,etat,pos,qvalue):
+        mini=int(self.modif(pos[0],etat,self.player))
+        for i in pos:
+            c=int(self.modif(i,etat,self.player))
+            try:
+                m=qvalue[mini]
+            except:
+                m=0
+            try:
+                e=qvalue[c]
+            except:
+                e=0
+            if m>e:
+                mini=c
+        return mini
+
+    def e_step(self,etat,qvalue):
+        pos=[]
+        for i in range(len(str(etat))):
+            if str(etat)[i]=="0":
+                pos.append(i)
+        if random()>self.epsilon:
+            etat=self.step(etat,pos,qvalue)
+        else:
+            etat=int(self.modif(choice(pos),etat,self.player))
+        self.epsilon=max(self.epsilon*self.decay,self.epsilon_min)
+        return etat
+
+    def reward(self,histo,qvalue):
+        for i in range(len(histo)-1,-1,-1):
+            try:
+                qvalue[histo[i]]=(qvalue[histo[i]]+(self.reward*self.lr)*(i+1))/len(histo)
+            except:
+                qvalue[histo[i]]=(self.reward*self.lr)*(i+1)/len(histo)
+
+class Game():
+    def __init__(self):
+        self.etat_base=1000000000
+    
+    def fini(self):
+        #verif ligne
+        for j in range(2):
+            for i in range(1,len(str(self.etat)),3):
+                a= True
+                for k in range(3):
+                    if j+1!=int(str(self.etat)[i+k]):
+                        a=False
+                        break
+                if a:
+                    return a
+        #verif colonne
+        for j in range(2):
+            for i in range(3):
+                a=True
+                for k in range(3):
+                    if j+1!=int(str(self.etat)[i+1+k*3]):
+                        a=False
+                        break
+                if a:
+                    return a
+        #verif diag
+        a=True
+        diag1=[1,5,9]
+        diag2=[3,5,7]
+        for j in range(2):
+            for i in diag1:
+                if j+1!=int(str(self.etat)[i]):
+                    a=False
+                    break
+            if a:
+                return a
+            a=True
+            for i in diag2:
+                if j+1!=int(str(self.etat)[i]):
+                    a=False
+                    break
+            if a:
+                return a
+        #check if there is any space left
+        for i in range(1,len(str(self.etat))):
+            if str(self.etat)[i]=="0":
+                return True
+        return False
+
+    def modif(self,action,p):
+        c=""
+        for i in range(len(str(self.etat))):
+            if i==action:
+                c+=str(p)
+            else:
+                c+=str(self.etat)[i]
+        return c
+    
+    def play(self,qvalue):
+        etat=self.etat_base
+        histo1=[]
+        histo2=[]
+        bot1=Agent(1)
+        bot2=Agent(2)
+        while True:
+            histo1.append(etat)
+            a,etat=bot1.e_step(etat,qvalue)
+            if self.fini(etat):
+                r1=bot1.reward
+                r2=-(bot2.reward)
+                break
+            histo2.append(etat)
+            a,etat=bot2.e_step(etat,qvalue)
+            if self.fini(etat):
+                r1=-(bot1.reward)
+                r2=bot2.reward
+                break
+            if a==False:
+                r1=0
+                r2=0
+                break
+        qvalue=bot1.reward(histo1,qvalue)
+        qvalue=bot2.reward(histo2,qvalue)
+        return qvalue
+
+jeux=Game()
+qval={}
+
+def affichage(etat):
+    for i in range(1,len(str(etat)),3):
+        print(str(etat)[i:i+3])
+
+for i in range(10):
+    for j in range(10000):
+        qval=jeux.play(qval)
+    print(i+1)
